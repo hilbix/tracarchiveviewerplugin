@@ -107,7 +107,7 @@ class ZipRenderer(Component):
 
     # IHTMLPreviewRenderer methods
     def get_extra_mimetypes(self):
-        yield ('application/x-zip-compressed', ['egg', 'jar', 'apk', 'epub', 'kmz', 'xpi', 'ipa'])
+        yield ('application/x-zip-compressed', ['egg', 'jar', 'ear', 'war', 'bar', 'apk', 'epub', 'kmz', 'xpi', 'ipa'])
         yield ('text/plain', ['MANIFEST.MF', 'PKG-INFO'])
 
     def get_quality_ratio(self, mimetype):
@@ -193,7 +193,12 @@ class ZipRenderer(Component):
         if name:
             for element in [e.lstrip('/') for e in name.split('!')]:
                 zipfile = ZipFile(StringIO(fileobj.read(max_size)))
-                fileobj = zipfile.open(element)
+                try:
+                    fileobj = zipfile.open(element)
+                except KeyError:
+                    raise ResourceNotFound(_("Attchment '%(title)s' does not exist.",  # FIXME: in browser, wrong message
+                         title=name),
+                       _('Invalid filename in Zip'))
             context = web_context(req, resource.child('zip', name, version=rev))
         else:
             context = web_context(req)

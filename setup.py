@@ -11,7 +11,7 @@ setup(
     license='Modified BSD',
     author='MATOBA Akihiro',
     author_email='matobaa+trac-hacks@gmail.com',
-    url='http://trac-hacks.org/wiki/matobaa',
+    url='https://trac-hacks.org/wiki/matobaa',
     description='Shows contents of archive file.',
     zip_safe=True,
     packages=find_packages(exclude=['*.tests']),

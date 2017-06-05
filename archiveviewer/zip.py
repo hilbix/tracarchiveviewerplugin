@@ -7,22 +7,25 @@
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.
 
+import os
+import re
 from StringIO import StringIO
 from datetime import datetime
-from genshi.builder import tag
+from zipfile import ZipFile, ZipExtFile
+
 from genshi.core import QName
 from genshi.filters.transform import Transformer, ENTER
 try:
-    Stream = False
     from svn.core import Stream
 except ImportError:
-    pass
+    Stream = False
 from trac.attachment import Attachment, AttachmentModule
 from trac.core import Component, implements, TracError
 from trac.mimeview.api import IHTMLPreviewRenderer, Mimeview
 from trac.resource import get_resource_url, Resource, IResourceManager, \
     get_resource_name, ResourceNotFound
 from trac.util.datefmt import http_date, to_datetime
+from trac.util.html import html as tag
 from trac.util.text import pretty_size, unicode_unquote
 from trac.util.translation import _
 from trac.versioncontrol.api import RepositoryManager, NoSuchChangeset
@@ -33,9 +36,6 @@ from trac.web.chrome import web_context, add_stylesheet, add_link
 from trac.web.href import Href
 from trac.web.wsgi import _FileWrapper
 from trac.wiki.api import IWikiSyntaxProvider
-from zipfile import ZipFile, ZipExtFile
-import os
-import re
 
 
 class ZipRenderer(Component):

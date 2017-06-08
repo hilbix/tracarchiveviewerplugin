@@ -3,10 +3,10 @@
 
 from setuptools import setup, find_packages
 
-version = '0.1'
+version = '0.2'
 
 setup(
-    name='ArchiveViewer',
+    name='TracArchiveViewer',
     version=version,
     license='Modified BSD',
     author='MATOBA Akihiro',

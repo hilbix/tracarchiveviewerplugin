@@ -11,14 +11,10 @@ import os
 import re
 from StringIO import StringIO
 from datetime import datetime
-from zipfile import ZipFile, ZipExtFile
+from zipfile import ZipFile
 
 from genshi.core import QName
 from genshi.filters.transform import Transformer, ENTER
-try:
-    from svn.core import Stream
-except ImportError:
-    Stream = False
 from trac.attachment import Attachment, AttachmentModule
 from trac.core import Component, implements, TracError
 from trac.mimeview.api import IHTMLPreviewRenderer, Mimeview
@@ -117,12 +113,12 @@ class ZipRenderer(Component):
 
     def render(self, context, mimetype, content, filename=None, url=None):
         if content and content.input:
-            max_size = self.env.config.getint('attachment', 'max_zip_size', default=2097152)
-            if (Stream and isinstance(content.input, Stream)) \
-                    or ZipExtFile and isinstance(content.input, ZipExtFile):
-                zipfile = ZipFile(StringIO(content.input.read(max_size)))
-            else:
-                zipfile = ZipFile(content.input)
+            f = content.input
+            if not hasattr(f, 'seek'):
+                max_size = self.config.getint('attachment', 'max_zip_size',
+                                              2097152)
+                f = StringIO(f.read(max_size))
+            zipfile = ZipFile(f)
             listitems = []
             for info in zipfile.infolist():
                 resource = context.resource.child('zip', info.filename)

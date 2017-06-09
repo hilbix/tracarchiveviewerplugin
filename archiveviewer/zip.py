@@ -242,9 +242,33 @@ class ZipRenderer(Component):
                 fileobj, zipinfo.file_size, mime_type, name, rawurl,
                  annotations=['lineno'])
             if attachment:
-                attachment.resource = context.resource
+
+                try:
+                    attachment.resource = context.resource
+                except AttributeError:  # Trac >= 1.1.4
+                    class _ZipAttachment(Attachment):
+
+                        @property
+                        def resource(self):
+                            return Resource(self.parent_resource) \
+                                   .child(self.realm, self.filename)
+
+                        def __init__(self, attachment, resource):
+                            self.description = attachment.description
+                            self.size = attachment.size
+                            self.date = attachment.date
+                            self.author = attachment.author
+                            if hasattr(attachment, 'ipnr'):
+                                self.ipnr = attachment.ipnr
+                            self.filename = resource.id
+                            self.parent_realm = resource.parent.realm
+                            self.parent_id = resource.parent.id
+                            self.parent_resource = resource.parent
+
+                    attachment = _ZipAttachment(attachment, context.resource)
+
                 data = {'preview': preview,
-                    'attachment': attachment}
+                        'attachment': attachment}
                 return 'attachment.html', data, None
             elif browser:
                 path_links = get_path_links(req.href, reponame, path, rev)

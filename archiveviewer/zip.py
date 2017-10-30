@@ -115,8 +115,8 @@ class ZipRenderer(Component):
         if content and content.input:
             f = content.input
             if not hasattr(f, 'seek'):
-                max_size = self.config.getint('attachment', 'max_zip_size',
-                                              2097152)
+                max_size = self.config.getint('mimeviewer', 'max_preview_size',
+                                              262144)
                 f = StringIO(f.read(max_size))
             zipfile = ZipFile(f)
             listitems = []
@@ -150,7 +150,7 @@ class ZipRenderer(Component):
         pass
 
     def process_request(self, req):
-        max_size = self.env.config.getint('attachment', 'max_zip_size', default=2097152)
+        max_size = self.env.config.getint('mimeviewer', 'max_preview_size', default=262144)
         attachment = req.args.get('attachment', None)
         browser = req.args.get('browser', None)
         resource = attachment or browser

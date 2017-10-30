@@ -103,7 +103,7 @@ class ZipRenderer(Component):
 
     # IHTMLPreviewRenderer methods
     def get_extra_mimetypes(self):
-        yield ('application/x-zip-compressed', ['egg', 'jar', 'ear', 'war', 'bar', 'apk', 'epub', 'kmz', 'xpi', 'ipa'])
+        yield ('application/x-zip-compressed', ['egg', 'whl', 'jar', 'ear', 'war', 'bar', 'apk', 'epub', 'kmz', 'xpi', 'ipa'])
         yield ('text/plain', ['MANIFEST.MF', 'PKG-INFO'])
 
     def get_quality_ratio(self, mimetype):

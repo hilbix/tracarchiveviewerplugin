@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2013, 2015 MATOBA Akihiro <matobaa+trac-hacks@gmail.com>
+# Copyright (C) 2013, 2015, 2019 MATOBA Akihiro <matobaa+trac-hacks@gmail.com>
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -9,12 +9,13 @@
 
 import os
 import re
-from StringIO import StringIO
+try:
+    from StringIO import StringIO # python2
+except:
+    from io import StringIO  # python3
 from datetime import datetime
 from zipfile import ZipFile
 
-from genshi.core import QName
-from genshi.filters.transform import Transformer, ENTER
 from trac.attachment import Attachment, AttachmentModule
 from trac.core import Component, implements, TracError
 from trac.mimeview.api import IHTMLPreviewRenderer, Mimeview
@@ -27,16 +28,17 @@ from trac.util.translation import _
 from trac.versioncontrol.api import RepositoryManager, NoSuchChangeset
 from trac.versioncontrol.web_ui.browser import BrowserModule
 from trac.versioncontrol.web_ui.util import get_existing_node, get_path_links
-from trac.web.api import IRequestHandler, RequestDone, ITemplateStreamFilter
-from trac.web.chrome import web_context, add_stylesheet, add_link
+from trac.web.api import IRequestHandler, RequestDone, IRequestFilter
+from trac.web.chrome import web_context, add_stylesheet, add_script, add_link, ITemplateProvider
 from trac.web.href import Href
 from trac.web.wsgi import _FileWrapper
 from trac.wiki.api import IWikiSyntaxProvider
+from trac import __version__ as VERSION
 
 
 class ZipRenderer(Component):
     """Renderer for ZIP archive."""
-    implements(IResourceManager, IHTMLPreviewRenderer, IRequestHandler, IWikiSyntaxProvider, ITemplateStreamFilter)
+    implements(IResourceManager, IHTMLPreviewRenderer, IRequestHandler, IWikiSyntaxProvider, IRequestFilter, ITemplateProvider)
 
     # IWikiSyntaxProvider methods
     def _format_link(self, formatter, ns, target, label):
@@ -177,7 +179,7 @@ class ZipRenderer(Component):
             if repos:
                 try:
                     node = get_existing_node(req, repos, path, rev)
-                except NoSuchChangeset, e:
+                except NoSuchChangeset as e:
                     raise ResourceNotFound(e.message,
                                            _('Invalid changeset number'))
             fileobj = node.get_content()
@@ -211,11 +213,15 @@ class ZipRenderer(Component):
                          'path': path + (req.args['path'] or '') + '!/' + info.filename,
                          'raw_href': None,
                          'created_rev': node.created_rev,
-                         } for info in zipfile.infolist()],
+                         } for info in zipfile.infolist()
+                         if not info.filename.endswith('/')],
                         'changes': {node.created_rev: None},
                     },
             }
-            return 'dir_entries.html', data, None
+            if VERSION < '1.3.2':
+                return 'dir_entries.html', data, None  # Genshi
+            else:
+                return 'dir_entries.html', data  # Jinja2
 
         try:
             zipinfo = zipfile.getinfo(element)
@@ -269,7 +275,10 @@ class ZipRenderer(Component):
 
                 data = {'preview': preview,
                         'attachment': attachment}
-                return 'attachment.html', data, None
+                if VERSION < '1.3.2':
+                    return 'attachment.html', data, None  # Genshi
+                else:
+                    return 'attachment.html', data  # Jinja2
             elif browser:
                 path_links = get_path_links(req.href, reponame, path, rev)
                 path_links.append({'name': '!' + name, 'href': req.href('zip', href, rev=rev)})
@@ -292,7 +301,11 @@ class ZipRenderer(Component):
                 }
                 add_stylesheet(req, 'common/css/browser.css')
 #                add_script(req, 'common/js/expand_dir.js')
-                return 'browser.html', data, None
+
+                if VERSION < '1.3.2':
+                    return 'browser.html', data, None  # Genshi
+                else:
+                    return 'browser.html', data  # Jinja2
         # else:
         # format == raw
         y, m, d, hh, mm, ss = zipinfo.date_time
@@ -315,32 +328,21 @@ class ZipRenderer(Component):
             req._response = file_wrapper(fileobj, 4096)
             raise RequestDone
 
-    # ITemplateStreamFilter methods
-    def filter_stream(self, req, method, filename, stream, data):
-        """ To use expander on zip file in directory view;
-            replace <a class='file' href='.../browser/.......zip'>
-                 to <a class='dir'  href='.../zip/browser/...zip'> """
-        class AttrReplaceTransform(object):
-            def __init__(self, name, by, to, count=None):
-                self.name, self.by, self.to, self.count = name, by, to, count
+    # ITemplateProvider methods
+    def get_htdocs_dirs(self):
+        from pkg_resources import resource_filename
+        yield 'archiveviewer', resource_filename(__name__, 'htdocs')
 
-            def __call__(self, stream):
-                for mark, (kind, data, pos) in stream:
-                    if mark is ENTER:
-                        href = data[1].get(self.name).replace(self.by, self.to, self.count)
-                        data = (data[0], data[1] | [(QName('href'), href)])
-                    yield mark, (kind, data, pos)
+    def get_templates_dirs(self):
+        return []
 
-        if filename in ['browser.html', 'dir_entries.html']:
-            stream |= Transformer() \
-                        .select('//td[@class="name"]//a[matches(@href, ".zip$")]') \
-                        .apply(AttrReplaceTransform('href', 'browser', 'zip/browser', 1)) \
-                        .attr('class', 'dir') \
-                        .end() \
-                        .select('//td[@class="name"]//a[contains(@href, ".zip?")]') \
-                        .apply(AttrReplaceTransform('href', 'browser', 'zip/browser', 1)) \
-                        .attr('class', 'dir') \
-                        .end() \
-                        .select('//td[@class="name"]//a[contains(@href, "!/")]') \
-                        .apply(AttrReplaceTransform('href', 'browser', 'zip/browser', 1))
-        return stream
+    # IRequestFilter methods
+    def pre_process_request(self, req, handler):
+        return handler
+
+    def post_process_request(self, req, template, data, content_type):
+        if template in ('browser.html', 'dir_entries.html'):
+            self.log.debug('post_process_request: %s' % template)
+            add_script(req, 'archiveviewer/js/add_expander_for_zip.js')
+        return template, data, content_type
+    

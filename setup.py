@@ -3,7 +3,7 @@
 
 from setuptools import setup, find_packages
 
-version = '0.2'
+version = '0.3'
 
 setup(
     name='TracArchiveViewer',
@@ -15,7 +15,7 @@ setup(
     description='Shows contents of archive file.',
     zip_safe=True,
     packages=find_packages(exclude=['*.tests']),
-#    package_data={'archiveviewer': ['templates/*/*']},
+    package_data={'archiveviewer': ['htdocs/js/*.js']},
     entry_points={
         'trac.plugins': [
             'ArchiveViewer.zip = archiveviewer.zip',

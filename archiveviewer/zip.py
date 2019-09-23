@@ -306,7 +306,8 @@ class ZipRenderer(Component):
             req.send_response(200)
             if not self.env.config.getbool('attachment', 'render_unsafe_content'):
                 req.send_header('Content-Disposition', 'attachment')
-            req.send_header('Content-Type', mime_type)
+            if mime_type:
+                req.send_header('Content-Type', mime_type)
             req.send_header('Content-Length', zipinfo.file_size)
             req.send_header('Last-Modified', last_modified)
             req.end_headers()

@@ -55,7 +55,9 @@ class ZipRenderer(Component):
             else:
                 resource = None
             return tag.a(label,
-                 href=get_resource_url(self.env, resource, formatter.href))
+                 href=get_resource_url(self.env, resource, formatter.href) + fragment)
+        else:
+            return label
 
     def get_wiki_syntax(self):
         return []

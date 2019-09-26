@@ -5,16 +5,19 @@
 
 (function($){
   $(function(){
+    const transform = function(row) {
+      $('td.name > a[href$="zip"], td.name > a[href*="zip?"]', row).addClass('dir');
+      $('td.name > a[href$="zip"], td.name > a[href*="zip?"], td.name > a[href*="!/"]', row)
+      .each(function() {
+          a = $(this);
+          a.attr('href', a.attr('href').replace('browser', 'zip/browser'));
+      })
+    }
     const wrapped = window.enableExpandDir;
     window.enableExpandDir = function(parent_tr, rows, qargs, autoexpand) {
-        $('td.name > a[href$="zip"], td.name > a[href*="zip?"]', rows[0])
-        .addClass('dir');
-        $('td.name > a[href$="zip"], td.name > a[href*="zip?"], td.name > a[href*="!/"]', rows[0])
-        .each(function() {
-            a = $(this);
-            a.attr('href', a.attr('href').replace('browser', 'zip/browser'));
-        })
-        wrapped(parent_tr, rows, qargs, autoexpand);
+      transform(rows[0]);
+      wrapped(parent_tr, rows, qargs, autoexpand);
     }
+    transform($('#dirlist'))
   })
 })(jQuery);

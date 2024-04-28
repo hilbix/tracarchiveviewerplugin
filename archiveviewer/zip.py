@@ -9,10 +9,7 @@
 
 import os
 import re
-try:
-    from StringIO import StringIO # python2
-except:
-    from io import StringIO  # python3
+from io import StringIO  # python3
 from datetime import datetime
 from zipfile import ZipFile
 
@@ -33,7 +30,6 @@ from trac.web.chrome import web_context, add_stylesheet, add_script, add_link, I
 from trac.web.href import Href
 from trac.web.wsgi import _FileWrapper
 from trac.wiki.api import IWikiSyntaxProvider
-from trac import __version__ as VERSION
 
 
 class ZipRenderer(Component):
@@ -220,10 +216,7 @@ class ZipRenderer(Component):
                         'changes': {node.created_rev: None},
                     },
             }
-            if VERSION < '1.3.2':
-                return 'dir_entries.html', data, None  # Genshi
-            else:
-                return 'dir_entries.html', data  # Jinja2
+            return 'dir_entries.html', data
 
         try:
             zipinfo = zipfile.getinfo(element)
@@ -277,10 +270,8 @@ class ZipRenderer(Component):
 
                 data = {'preview': preview,
                         'attachment': attachment}
-                if VERSION < '1.3.2':
-                    return 'attachment.html', data, None  # Genshi
-                else:
-                    return 'attachment.html', data  # Jinja2
+                return 'attachment.html', data
+
             elif browser:
                 path_links = get_path_links(req.href, reponame, path, rev)
                 path_links.append({'name': '!' + name, 'href': req.href('zip', href, rev=rev)})
@@ -304,10 +295,8 @@ class ZipRenderer(Component):
                 add_stylesheet(req, 'common/css/browser.css')
 #                add_script(req, 'common/js/expand_dir.js')
 
-                if VERSION < '1.3.2':
-                    return 'browser.html', data, None  # Genshi
-                else:
-                    return 'browser.html', data  # Jinja2
+                return 'browser.html', data
+
         # else:
         # format == raw
         y, m, d, hh, mm, ss = zipinfo.date_time

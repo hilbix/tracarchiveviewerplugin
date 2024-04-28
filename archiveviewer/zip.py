@@ -9,7 +9,7 @@
 
 import os
 import re
-from io import StringIO  # python3
+import io
 from datetime import datetime
 from zipfile import ZipFile
 
@@ -117,7 +117,7 @@ class ZipRenderer(Component):
             if not hasattr(f, 'seek'):
                 max_size = self.config.getint('mimeviewer', 'max_preview_size',
                                               262144)
-                f = StringIO(f.read(max_size))
+                f = io.BytesIO(f.read(max_size))
             zipfile = ZipFile(f)
             listitems = []
             for info in zipfile.infolist():
@@ -184,14 +184,19 @@ class ZipRenderer(Component):
         else:
             raise TracError('Not Implemented')
 
+        #hilbix: remove the leading !/
         name = (req.args['path'] or '')[2:]
+
+        self.log.info('ZIP: %s' % attachment.resource.id)
 
         if name:
             for element in [e.lstrip('/') for e in name.split('!')]:
-                zipfile = ZipFile(StringIO(fileobj.read(max_size)))
+                self.log.debug('ZIP element: %s' % element)
+                zipfile = ZipFile(fileobj)
                 try:
                     fileobj = zipfile.open(element)
                 except KeyError:
+                    self.log.debug('ZIP fail: %s' % element)
                     raise ResourceNotFound(_("Attchment '%(title)s' does not exist.",  # FIXME: in browser, wrong message
                          title=name),
                        _('Invalid filename in Zip'))
@@ -200,7 +205,8 @@ class ZipRenderer(Component):
             context = web_context(req)
 
         if xhr:
-            zipfile = ZipFile(StringIO(fileobj.read(max_size)))
+            self.log.debug('ZIP xhr')
+            zipfile = ZipFile(fileobj)
             data = {
                 'reponame': reponame, 'stickyrev': node.created_rev,
                 'display_rev': lambda x: x,
@@ -216,14 +222,20 @@ class ZipRenderer(Component):
                         'changes': {node.created_rev: None},
                     },
             }
+
+            #hilbix: This return probably is no more correct?
             return 'dir_entries.html', data
 
         try:
+            self.log.debug('ZIP info: %s' % element)
             zipinfo = zipfile.getinfo(element)
         except KeyError:
+            self.log.debug('ZIP fail: %s' % element)
             raise ResourceNotFound(_("Attchment '%(title)s' does not exist.",  # FIXME: in browser, wrong message
                          title=name),
                        _('Invalid filename in Zip'))
+
+        self.log.debug('HERE %s' % zipinfo)
 
         str_data = fileobj.peek(512)
         mimeview = Mimeview(self.env)
@@ -231,6 +243,8 @@ class ZipRenderer(Component):
         if mime_type and 'charset=' not in mime_type:
             charset = mimeview.get_charset(str_data, mime_type)
             mime_type = mime_type + '; charset=' + charset
+
+        self.log.debug('ZIP mimetype: %s' % mime_type)
 
         if req.args['format'] != 'raw-':  # format != raw
             href = unicode_unquote(get_resource_url(self.env, resource, Href('')))
@@ -242,34 +256,36 @@ class ZipRenderer(Component):
                 context,
                 fileobj, zipinfo.file_size, mime_type, name, rawurl,
                  annotations=['lineno'])
+
             if attachment:
 
-                try:
-                    attachment.resource = context.resource
-                except AttributeError:  # Trac >= 1.1.4
-                    class _ZipAttachment(Attachment):
+                class _ZipAttachment(Attachment):
 
-                        @property
-                        def resource(self):
-                            return Resource(self.parent_resource) \
-                                   .child(self.realm, self.filename)
+                    @property
+                    def resource(self):
+                        return Resource(self.parent_resource) \
+                               .child(self.realm, self.filename)
 
-                        def __init__(self, attachment, resource):
-                            self.description = attachment.description
-                            self.size = attachment.size
-                            self.date = attachment.date
-                            self.author = attachment.author
-                            if hasattr(attachment, 'ipnr'):
-                                self.ipnr = attachment.ipnr
-                            self.filename = resource.id
-                            self.parent_realm = resource.parent.realm
-                            self.parent_id = resource.parent.id
-                            self.parent_resource = resource.parent
+                    def __init__(self, attachment, resource):
+                        self.description = attachment.description
+                        self.size = attachment.size
+                        self.date = attachment.date
+                        self.author = attachment.author
+                        if hasattr(attachment, 'ipnr'):
+                            self.ipnr = attachment.ipnr
+                        self.filename = resource.id
+                        self.parent_realm = resource.parent.realm
+                        self.parent_id = resource.parent.id
+                        self.parent_resource = resource.parent
 
-                    attachment = _ZipAttachment(attachment, context.resource)
+                #hilbix: This does not work, but I currently do not know how to fix it, sorry!
+                attachment = _ZipAttachment(attachment, context.resource)
 
                 data = {'preview': preview,
                         'attachment': attachment}
+                self.log.debug('ZIP attachment: %s' % data)
+
+                #hilbix: This return probably is no more correct?
                 return 'attachment.html', data
 
             elif browser:
@@ -295,6 +311,9 @@ class ZipRenderer(Component):
                 add_stylesheet(req, 'common/css/browser.css')
 #                add_script(req, 'common/js/expand_dir.js')
 
+                self.log.debug('ZIP browser: %s' % data)
+
+                #hilbix: This return probably is no more correct?
                 return 'browser.html', data
 
         # else:
@@ -305,8 +324,9 @@ class ZipRenderer(Component):
             req.send_response(304)
             req.send_header('Content-Length', 0)
             req.end_headers()
-            raise RequestDone
+            #hilbix: Untested, probably works
         else:
+            #hilbix: Tested, works
             req.send_response(200)
             if not self.env.config.getbool('attachment', 'render_unsafe_content'):
                 req.send_header('Content-Disposition', 'attachment')
@@ -317,7 +337,7 @@ class ZipRenderer(Component):
             req.end_headers()
             file_wrapper = req.environ.get('wsgi.file_wrapper', _FileWrapper)
             req._response = file_wrapper(fileobj, 4096)
-            raise RequestDone
+        raise RequestDone
 
     # ITemplateProvider methods
     def get_htdocs_dirs(self):
